@@ -1,180 +1,217 @@
--- Load the Fluent UI library
-local Library = loadstring(game:HttpGet("https://github.com/ActualMasterOogway/Fluent-Renewed/releases/latest/download/Fluent.luau"))()
+local Players = game:GetService("Players")
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Load addons
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/master/Addons/SaveManager.luau"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/master/Addons/InterfaceManager.luau"))()
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Get the local player
-local player = game.Players.LocalPlayer
-
--- Tables to store highlights and noclip connections
+-- Tables for highlights and noclip
 local highlights = {}
-local noclipConnections = {}
+local noclipConnection = nil
 
--- Variables to track toggle states
-local highlightEnabled = false
-local noclipEnabled = false
+-- Toggle states
+local isHighlightActive = false
+local isJumpActive = false
+local isNoclipActive = false
 
--- Function to apply highlights to key objects (items, NPCs, doors)
-local function applyHighlights()
-    removeHighlights() -- Clear existing highlights
+-- Highlight key objects and NPCs
+local function highlightObjects()
     for _, obj in pairs(workspace:GetDescendants()) do
-        if (obj:IsA("Model") and (obj.Name == "Darcy Dog" or obj.Name == "Paco" or obj.Name == "Police NPC")) or
-           (obj:IsA("BasePart") and (obj.Name == "Grape Juice" or obj.Name == "Tasty Drink" or obj.Name == "Bone" or obj.Name == "Battery" or obj.Name == "Wooden Door" or obj.Name == "Keypad")) then
+        if (obj:IsA("Model") and (obj.Name == "DarcyDog" or obj.Name == "Paco" or obj.Name == "PoliceNPC")) or
+           (obj:IsA("BasePart") and (obj.Name == "GrapeJuice" or obj.Name == "TastyDrink" or obj.Name == "Bone" or 
+                                     obj.Name == "Battery" or obj.Name == "WoodenDoor" or obj.Name == "Keypad")) then
             local highlight = Instance.new("Highlight")
             highlight.Parent = obj
-            highlight.FillTransparency = 0.5
-            highlight.OutlineColor = BrickColor.new("Bright green")
-            table.insert(highlights, highlight)
+            highlight.FillTransparency = 0.7
+            highlight.OutlineColor = Color3.fromRGB(obj.Name == "DarcyDog" and 255 or 0, obj.Name == "DarcyDog" and 0 or 255, 0)
+            highlights[obj] = highlight
         end
     end
 end
 
--- Function to remove all highlights
-local function removeHighlights()
+-- Clear highlights
+local function clearHighlights()
     for _, highlight in pairs(highlights) do
-        if highlight.Parent then
+        if highlight then
             highlight:Destroy()
         end
     end
     highlights = {}
 end
 
--- Function to set noclip for a character
-local function setNoclipForCharacter(character, enabled)
-    if character and character:FindFirstChild("Humanoid") then
-        local humanoid = character.Humanoid
+-- Toggle jump
+local function toggleJump(character, enabled)
+    local humanoid = character and character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.JumpPower = enabled and 50 or 0
+    end
+end
+
+-- Toggle noclip
+local function toggleNoclip(character, enabled)
+    local humanoid = character and character:FindFirstChild("Humanoid")
+    if humanoid then
         if enabled then
-            local connection = game:GetService("RunService").Stepped:Connect(function()
-                humanoid:ChangeState(11) -- Enum.HumanoidStateType.Physics
+            noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+                humanoid:ChangeState(Enum.HumanoidStateType.Physics)
             end)
-            noclipConnections[character] = connection
         else
-            if noclipConnections[character] then
-                noclipConnections[character]:Disconnect()
-                noclipConnections[character] = nil
+            if noclipConnection then
+                noclipConnection:Disconnect()
+                noclipConnection = nil
             end
         end
     end
 end
 
--- Function to teleport to a named object or NPC
+-- Teleport to target
 local function teleportTo(targetName)
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
+    if character and rootPart then
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj.Name == targetName and (obj:IsA("BasePart") or obj:IsA("Model")) then
-                local targetCFrame = obj:IsA("Model") and obj:GetPrimaryPartCFrame() or obj.CFrame
-                if targetCFrame then
-                    character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0) -- Teleport slightly above
-                    break
+                local cframe = obj:IsA("Model") and obj:GetPrimaryPartCFrame() or obj.CFrame
+                if cframe then
+                    rootPart.CFrame = cframe + Vector3.new(0, 3, 0)
+                    return true
                 end
             end
         end
     end
+    return false
 end
 
--- Create the UI using Fluent
-local Window = Library:CreateWindow({
-    Name = "PIG 64 Nor Skin Script",
-    Theme = "Dark"
+-- UI setup
+local Window = Fluent:CreateWindow({
+    Title = "PIG 64 Nor Skin",
+    Theme = "Dark",
+    Size = UDim2.new(0, 500, 0, 400)
 })
 
--- Create tabs
 local Tabs = {
-    Main = Window:CreateTab{
+    Main = Window:CreateTab({
         Title = "Main",
-        Icon = "phosphor-users-bold"
-    },
-    Settings = Window:CreateTab{
+        Icon = "rbxassetid://10734949875"
+    }),
+    Settings = Window:CreateTab({
         Title = "Settings",
-        Icon = "settings"
-    }
+        Icon = "rbxassetid://10709819011"
+    })
 }
 
--- Add toggles to the Main tab
-local HighlightToggle = Tabs.Main:CreateToggle({
-    Name = "Highlight Objects",
+-- Main tab toggles
+Tabs.Main:AddToggle({
+    Title = "Highlight Items & NPCs",
     Callback = function(value)
-        highlightEnabled = value
+        isHighlightActive = value
         if value then
-            applyHighlights()
+            highlightObjects()
         else
-            removeHighlights()
+            clearHighlights()
         end
     end
 })
 
-local NoclipToggle = Tabs.Main:CreateToggle({
-    Name = "Noclip",
+Tabs.Main:AddToggle({
+    Title = "Enable Jump",
     Callback = function(value)
-        noclipEnabled = value
-        local character = player.Character
-        if character then
-            setNoclipForCharacter(character, value)
+        isJumpActive = value
+        toggleJump(character, value)
+    end
+})
+
+Tabs.Main:AddToggle({
+    Title = "Noclip",
+    Callback = function(value)
+        isNoclipActive = value
+        toggleNoclip(character, value)
+    end
+})
+
+-- Main tab buttons
+Tabs.Main:AddButton({
+    Title = "Go to Grape Juice",
+    Callback = function()
+        if not teleportTo("GrapeJuice") then
+            Fluent:Notify({Title = "Error", Content = "Grape Juice not found!", Duration = 3})
         end
     end
 })
 
--- Add buttons to the Main tab
-local CollectItemsButton = Tabs.Main:CreateButton({
-    Name = "Collect Items (Grape Juice, Tasty Drinks)",
+Tabs.Main:AddButton({
+    Title = "Go to Tasty Drink",
     Callback = function()
-        teleportTo("Grape Juice")
-        wait(1)
-        teleportTo("Tasty Drink")
-    end
-})
-
-local DarcyButton = Tabs.Main:CreateButton({
-    Name = "Teleport to Darcy Dog",
-    Callback = function()
-        teleportTo("Darcy Dog")
-    end
-})
-
-local PacoButton = Tabs.Main:CreateButton({
-    Name = "Teleport to Paco",
-    Callback = function()
-        teleportTo("Paco")
-    end
-})
-
-local WoodenDoorButton = Tabs.Main:CreateButton({
-    Name = "Teleport to Wooden Door",
-    Callback = function()
-        teleportTo("Wooden Door")
-    end
-})
-
-local KeypadButton = Tabs.Main:CreateButton({
-    Name = "Enter Code 6845",
-    Callback = function()
-        teleportTo("Keypad")
-        -- Simulate entering code (may not work if game requires manual input)
-        local keypad = workspace:FindFirstChild("Keypad", true)
-        if keypad then
-            -- This is a placeholder; actual interaction depends on game mechanics
-            print("Attempting to enter code 6845 on Keypad")
+        if not teleportTo("TastyDrink") then
+            Fluent:Notify({Title = "Error", Content = "Tasty Drink not found!", Duration = 3})
         end
     end
 })
 
-local PoliceNPCButton = Tabs.Main:CreateButton({
-    Name = "Teleport to Police NPC",
+Tabs.Main:AddButton({
+    Title = "Go to Wooden Door",
     Callback = function()
-        teleportTo("Police NPC")
+        if not teleportTo("WoodenDoor") then
+            Fluent:Notify({Title = "Error", Content = "Wooden Door not found!", Duration = 3})
+        end
     end
 })
 
--- Handle character added (for respawns)
-player.CharacterAdded:Connect(function(character)
-    setNoclipForCharacter(character, noclipEnabled)
+Tabs.Main:AddButton({
+    Title = "Go to Darcy Dog",
+    Callback = function()
+        if not teleportTo("DarcyDog") then
+            Fluent:Notify({Title = "Error", Content = "Darcy Dog not found!", Duration = 3})
+        end
+    end
+})
+
+Tabs.Main:AddButton({
+    Title = "Go to Paco",
+    Callback = function()
+        if not teleportTo("Paco") then
+            Fluent:Notify({Title = "Error", Content = "Paco not found!", Duration = 3})
+        end
+    end
+})
+
+Tabs.Main:AddButton({
+    Title = "Go to Police NPC",
+    Callback = function()
+        if not teleportTo("PoliceNPC") then
+            Fluent:Notify({Title = "Error", Content = "Police NPC not found!", Duration = 3})
+        end
+    end
+})
+
+Tabs.Main:AddButton({
+    Title = "Enter Code 6845",
+    Callback = function()
+        if teleportTo("Keypad") then
+            Fluent:Notify({Title = "Info", Content = "At Keypad. Enter 6845 manually!", Duration = 3})
+        else
+            Fluent:Notify({Title = "Error", Content = "Keypad not found!", Duration = 3})
+        end
+    end
+})
+
+-- Settings tab button
+Tabs.Settings:AddButton({
+    Title = "Save Config",
+    Callback = function()
+        SaveManager:Save()
+        Fluent:Notify({Title = "Success", Content = "Config saved!", Duration = 3})
+    end
+})
+
+-- Handle character respawn
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    rootPart = newChar:WaitForChild("HumanoidRootPart")
+    toggleJump(newChar, isJumpActive)
+    toggleNoclip(newChar, isNoclipActive)
 end)
 
--- Initial setup for current character
-local character = player.Character
-if character then
-    setNoclipForCharacter(character, noclipEnabled)
-end
+-- Initial setup
+toggleJump(character, isJumpActive)
+toggleNoclip(character, isNoclipActive)
