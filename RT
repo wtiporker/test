@@ -1,0 +1,180 @@
+-- Load the Fluent UI library
+local Library = loadstring(game:HttpGet("https://github.com/ActualMasterOogway/Fluent-Renewed/releases/latest/download/Fluent.luau"))()
+
+-- Load addons
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/master/Addons/SaveManager.luau"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/master/Addons/InterfaceManager.luau"))()
+
+-- Get the local player
+local player = game.Players.LocalPlayer
+
+-- Tables to store highlights and noclip connections
+local highlights = {}
+local noclipConnections = {}
+
+-- Variables to track toggle states
+local highlightEnabled = false
+local noclipEnabled = false
+
+-- Function to apply highlights to key objects (items, NPCs, doors)
+local function applyHighlights()
+    removeHighlights() -- Clear existing highlights
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if (obj:IsA("Model") and (obj.Name == "Darcy Dog" or obj.Name == "Paco" or obj.Name == "Police NPC")) or
+           (obj:IsA("BasePart") and (obj.Name == "Grape Juice" or obj.Name == "Tasty Drink" or obj.Name == "Bone" or obj.Name == "Battery" or obj.Name == "Wooden Door" or obj.Name == "Keypad")) then
+            local highlight = Instance.new("Highlight")
+            highlight.Parent = obj
+            highlight.FillTransparency = 0.5
+            highlight.OutlineColor = BrickColor.new("Bright green")
+            table.insert(highlights, highlight)
+        end
+    end
+end
+
+-- Function to remove all highlights
+local function removeHighlights()
+    for _, highlight in pairs(highlights) do
+        if highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    highlights = {}
+end
+
+-- Function to set noclip for a character
+local function setNoclipForCharacter(character, enabled)
+    if character and character:FindFirstChild("Humanoid") then
+        local humanoid = character.Humanoid
+        if enabled then
+            local connection = game:GetService("RunService").Stepped:Connect(function()
+                humanoid:ChangeState(11) -- Enum.HumanoidStateType.Physics
+            end)
+            noclipConnections[character] = connection
+        else
+            if noclipConnections[character] then
+                noclipConnections[character]:Disconnect()
+                noclipConnections[character] = nil
+            end
+        end
+    end
+end
+
+-- Function to teleport to a named object or NPC
+local function teleportTo(targetName)
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name == targetName and (obj:IsA("BasePart") or obj:IsA("Model")) then
+                local targetCFrame = obj:IsA("Model") and obj:GetPrimaryPartCFrame() or obj.CFrame
+                if targetCFrame then
+                    character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0) -- Teleport slightly above
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- Create the UI using Fluent
+local Window = Library:CreateWindow({
+    Name = "PIG 64 Nor Skin Script",
+    Theme = "Dark"
+})
+
+-- Create tabs
+local Tabs = {
+    Main = Window:CreateTab{
+        Title = "Main",
+        Icon = "phosphor-users-bold"
+    },
+    Settings = Window:CreateTab{
+        Title = "Settings",
+        Icon = "settings"
+    }
+}
+
+-- Add toggles to the Main tab
+local HighlightToggle = Tabs.Main:CreateToggle({
+    Name = "Highlight Objects",
+    Callback = function(value)
+        highlightEnabled = value
+        if value then
+            applyHighlights()
+        else
+            removeHighlights()
+        end
+    end
+})
+
+local NoclipToggle = Tabs.Main:CreateToggle({
+    Name = "Noclip",
+    Callback = function(value)
+        noclipEnabled = value
+        local character = player.Character
+        if character then
+            setNoclipForCharacter(character, value)
+        end
+    end
+})
+
+-- Add buttons to the Main tab
+local CollectItemsButton = Tabs.Main:CreateButton({
+    Name = "Collect Items (Grape Juice, Tasty Drinks)",
+    Callback = function()
+        teleportTo("Grape Juice")
+        wait(1)
+        teleportTo("Tasty Drink")
+    end
+})
+
+local DarcyButton = Tabs.Main:CreateButton({
+    Name = "Teleport to Darcy Dog",
+    Callback = function()
+        teleportTo("Darcy Dog")
+    end
+})
+
+local PacoButton = Tabs.Main:CreateButton({
+    Name = "Teleport to Paco",
+    Callback = function()
+        teleportTo("Paco")
+    end
+})
+
+local WoodenDoorButton = Tabs.Main:CreateButton({
+    Name = "Teleport to Wooden Door",
+    Callback = function()
+        teleportTo("Wooden Door")
+    end
+})
+
+local KeypadButton = Tabs.Main:CreateButton({
+    Name = "Enter Code 6845",
+    Callback = function()
+        teleportTo("Keypad")
+        -- Simulate entering code (may not work if game requires manual input)
+        local keypad = workspace:FindFirstChild("Keypad", true)
+        if keypad then
+            -- This is a placeholder; actual interaction depends on game mechanics
+            print("Attempting to enter code 6845 on Keypad")
+        end
+    end
+})
+
+local PoliceNPCButton = Tabs.Main:CreateButton({
+    Name = "Teleport to Police NPC",
+    Callback = function()
+        teleportTo("Police NPC")
+    end
+})
+
+-- Handle character added (for respawns)
+player.CharacterAdded:Connect(function(character)
+    setNoclipForCharacter(character, noclipEnabled)
+end)
+
+-- Initial setup for current character
+local character = player.Character
+if character then
+    setNoclipForCharacter(character, noclipEnabled)
+end
